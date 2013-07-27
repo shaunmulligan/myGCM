@@ -3,11 +3,17 @@ package com.example.mygcm;
 import com.google.android.gcm.GCMRegistrar;
 import android.os.Bundle;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import java.text.DateFormat;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.TimeZone;
+
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -23,8 +29,28 @@ public class GCMMainActivity extends Activity {
     final static String wifiName = "homenew";
     TextView txtmsg;
     String username = "null";
-    
-    
+    private static GCMMainActivity mInst;
+
+    public static GCMMainActivity instance() {
+              return mInst;
+    }
+    @Override
+    public void onStart() {
+    	super.onStart();
+    	mInst = this;
+    	final SharedPreferences prefs = this.getSharedPreferences("com.example.mygcm", Context.MODE_PRIVATE);
+    	final Button clkInBtn = (Button) findViewById(R.id.clockIn);
+        if(prefs.getBoolean("clockedIn", false)){
+        	clkInBtn.setText("Clock Out");
+        }else{
+        	clkInBtn.setText("Clock In");
+        }
+    }
+    @Override
+    public void onStop() {
+    	super.onStop();
+    	mInst = null;
+    } 
     @Override
     public void onBackPressed() {
     }
@@ -49,6 +75,11 @@ public class GCMMainActivity extends Activity {
         findViewById(R.id.message_text);
         //clock in for work button
         final Button clkInBtn = (Button) findViewById(R.id.clockIn);
+        if(prefs.getBoolean("clockedIn", false)){
+        	clkInBtn.setText("Clock Out");
+        }else{
+        	clkInBtn.setText("Clock In");
+        }
         // Locate the TextView
         txtmsg = (TextView) findViewById(R.id.statusMessage);
         // Set the data into TextView
@@ -61,7 +92,7 @@ public class GCMMainActivity extends Activity {
         	edit_text.setVisibility(View.GONE);
         	clkInBtn.setVisibility(1);
         }
-
+        autoLogOut();
         //registration button event listener
         regbtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -89,6 +120,7 @@ public class GCMMainActivity extends Activity {
         	@Override
         	public void onClick(View v){
         		String currentDateTimeString = DateFormat.getDateTimeInstance().format(new Date());
+        		
         		try{
         			String wifiConnection = utilities.getCurrentSsid(GCMMainActivity.this);
 	        		Log.i(TAG,": current wifi is:"+wifiConnection);
@@ -101,8 +133,8 @@ public class GCMMainActivity extends Activity {
 	        			prefs.edit().putBoolean("clockedIn",true).commit();
 	        			//log data to google spreadsheet
 	        			//####################################
-	        			new HttpPostTask().execute(prefName,"clock in");
-	        			new AlertDialog.Builder(GCMMainActivity.this).setTitle("Success").setMessage("You have successfully clocked in for work").setNeutralButton("Close", null).show();
+	        			new HttpPostTask().execute(prefName,"clock in","OK");
+	        			new AlertDialog.Builder(GCMMainActivity.this).setTitle("Success").setMessage("Successfully clocked in for work").setNeutralButton("Close", null).show();
 	        			//####################################
 	        		}else
 	        		if(prefs.getBoolean("clockedIn", false) && wifiConnection.equals(wifiName)){
@@ -111,8 +143,8 @@ public class GCMMainActivity extends Activity {
 	        			prefs.edit().putBoolean("clockedIn", false).commit();
 	        			//log data to google spreadsheet
 	        			//####################################
-	        			new HttpPostTask().execute(prefName,"clock out");
-	        			new AlertDialog.Builder(GCMMainActivity.this).setTitle("Success").setMessage("You have successfully clocked Out of work").setNeutralButton("Close", null).show();
+	        			new HttpPostTask().execute(prefName,"clock out","OK");
+	        			new AlertDialog.Builder(GCMMainActivity.this).setTitle("Success").setMessage("Successfully clocked Out of work").setNeutralButton("Close", null).show();
 	        			//####################################
 	        		}else{
 	        			//if they are not in the B&B's registered wifizone.
@@ -128,4 +160,28 @@ public class GCMMainActivity extends Activity {
        
     }   
 
+public void autoLogOut(){
+ // get a Calendar object with current time
+    Calendar cal = Calendar.getInstance();
+    
+    Calendar updateTime = Calendar.getInstance();
+    updateTime.setTimeZone(TimeZone.getDefault());
+    updateTime.set(Calendar.HOUR_OF_DAY, 21);
+    updateTime.set(Calendar.MINUTE, 00);
+    
+    cal.add(Calendar.MINUTE, 1);
+    Intent intent = new Intent(this, AlarmReceiver.class);
+    intent.putExtra("alarm_message", "You have been auto clocked out");
+    // In reality, you would want to have a static variable for the request code instead of 192837
+    PendingIntent sender = PendingIntent.getBroadcast(this, 192837, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+    
+    // Get the AlarmManager service
+    AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+    am.setRepeating(AlarmManager.RTC_WAKEUP, updateTime.getTimeInMillis(),AlarmManager.INTERVAL_DAY, sender);
+}
+public void alertFromAlarm(){
+	final Button clkInBtn = (Button) findViewById(R.id.clockIn);
+	clkInBtn.setText("Clock In");
+	new AlertDialog.Builder(GCMMainActivity.this).setTitle("alarm recieved").setMessage("You have been auto clocked out!").setNeutralButton("Close", null).show();
+}
 }

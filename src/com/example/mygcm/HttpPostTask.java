@@ -14,7 +14,7 @@ class HttpPostTask extends AsyncTask<String, Void, ResponseStatus> {
 
         try {
             // do HTTP post to google sheet 
-        	postData(params[0],params[1]);
+        	postData(params[0],params[1],params[2]);
             return ResponseStatus.SUCCESS;
         } catch( Exception e ){
             return ResponseStatus.FAILURE;
@@ -34,15 +34,17 @@ class HttpPostTask extends AsyncTask<String, Void, ResponseStatus> {
         }
     }
 
-	public void postData(String name,String status) {
+	public void postData(String name,String status,String comment) {
 
 		String fullUrl = "https://docs.google.com/forms/d/1ZWJbDZiYtUDU6geTfkhKJUaCZRdxboAXkOjtBu1M-y8/formResponse";
 		HttpRequest mReq = new HttpRequest();
 		String col1 = name;
 		String col2 = status;
+		String col3 = comment;
 		
 		String data = "entry.101031925=" + URLEncoder.encode(col1) + "&" + 
-					  "entry.469940721=" + URLEncoder.encode(col2);
+					  "entry.469940721=" + URLEncoder.encode(col2) + "&" + 
+					  "entry.2076912244="+ URLEncoder.encode(col3);
 		String response = mReq.sendPost(fullUrl, data);
 		Log.i(TAG, response);
 	} 
